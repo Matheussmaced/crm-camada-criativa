@@ -1,10 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { useCollectionStore } from "@/hooks/useCollectionStore";
-import { transactionStore } from "@/services/storage/financialStorage";
-import { budgetStore } from "@/services/storage/budgetStorage";
-import { customerStore } from "@/services/storage/customerStorage";
+import { useTransactions } from "@/features/financial/hooks/useTransactions";
+import { useBudgets } from "@/features/budgets/hooks/useBudgets";
+import { useCustomers } from "@/features/customers/hooks/useCustomers";
 import { calculateDashboardMetrics } from "../utils/dashboardMetrics";
 import {
   buildCashFlowSeries,
@@ -17,9 +16,9 @@ import {
 } from "../utils/chartData";
 
 export function useDashboardData() {
-  const transactions = useCollectionStore(transactionStore);
-  const budgets = useCollectionStore(budgetStore);
-  const customers = useCollectionStore(customerStore);
+  const { transactions } = useTransactions();
+  const { budgets } = useBudgets();
+  const { customers } = useCustomers();
 
   return useMemo(
     () => ({

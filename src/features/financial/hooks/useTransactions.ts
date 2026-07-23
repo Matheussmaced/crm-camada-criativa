@@ -1,63 +1,97 @@
 "use client";
 
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
-import { useCollectionStore } from "@/hooks/useCollectionStore";
-import { transactionStore } from "@/services/storage/financialStorage";
-import { generateId } from "@/utils/id";
-import { nowIso } from "@/utils/formatDate";
-import type { Transaction } from "@/types";
+import {
+  deleteTransaction,
+  fetchTransactions,
+  insertDuplicateTransaction,
+  insertTransaction,
+  updateTransactionRow,
+} from "@/services/supabase/transactions";
 import type { TransactionFormValues } from "../schemas";
+import type { Transaction } from "@/types";
+
+export const TRANSACTIONS_KEY = ["transactions"] as const;
 
 export function useTransactions() {
-  const transactions = useCollectionStore(transactionStore);
+  const { isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
   const { showToast } = useToast();
 
-  function addTransaction(values: TransactionFormValues, attachment?: { id: string; name: string }): Transaction {
-    const now = nowIso();
-    const transaction: Transaction = {
-      id: generateId(),
-      ...values,
-      attachmentId: attachment?.id,
-      attachmentName: attachment?.name,
-      createdAt: now,
-      updatedAt: now,
-    };
-    transactionStore.add(transaction);
-    showToast({ title: "Lançamento adicionado", variant: "success" });
-    return transaction;
+  const { data: transactions = [] } = useQuery({
+    queryKey: TRANSACTIONS_KEY,
+    queryFn: fetchTransactions,
+    enabled: isAuthenticated,
+  });
+
+  function invalidate() {
+    return queryClient.invalidateQueries({ queryKey: TRANSACTIONS_KEY });
   }
 
-  function updateTransaction(
-    id: string,
-    values: TransactionFormValues,
-    attachment?: { id: string; name: string }
-  ): void {
-    transactionStore.update(id, {
-      ...values,
-      ...(attachment ? { attachmentId: attachment.id, attachmentName: attachment.name } : {}),
-      updatedAt: nowIso(),
-    });
-    showToast({ title: "Lançamento atualizado", variant: "success" });
-  }
+  const onError = () => showToast({ title: "Erro ao salvar. Tente novamente.", variant: "error" });
 
-  function duplicateTransaction(transaction: Transaction): Transaction {
-    const now = nowIso();
-    const duplicated: Transaction = {
-      ...transaction,
-      id: generateId(),
-      description: `${transaction.description} (cópia)`,
-      createdAt: now,
-      updatedAt: now,
-    };
-    transactionStore.add(duplicated);
-    showToast({ title: "Lançamento duplicado", variant: "success" });
-    return duplicated;
-  }
+  const addMutation = useMutation({
+    mutationFn: ({
+      values,
+      attachment,
+    }: {
+      values: TransactionFormValues;
+      attachment?: { id: string; name: string };
+    }) => insertTransaction(values, attachment),
+    onSuccess: () => {
+      invalidate();
+      showToast({ title: "Lançamento adicionado", variant: "success" });
+    },
+    onError,
+  });
 
-  function removeTransaction(id: string): void {
-    transactionStore.remove(id);
-    showToast({ title: "Lançamento removido", variant: "success" });
-  }
+  const updateMutation = useMutation({
+    mutationFn: ({
+      id,
+      values,
+      attachment,
+    }: {
+      id: string;
+      values: TransactionFormValues;
+      attachment?: { id: string; name: string };
+    }) => updateTransactionRow(id, values, attachment),
+    onSuccess: () => {
+      invalidate();
+      showToast({ title: "Lançamento atualizado", variant: "success" });
+    },
+    onError,
+  });
 
-  return { transactions, addTransaction, updateTransaction, duplicateTransaction, removeTransaction };
+  const duplicateMutation = useMutation({
+    mutationFn: (transaction: Transaction) => insertDuplicateTransaction(transaction),
+    onSuccess: () => {
+      invalidate();
+      showToast({ title: "Lançamento duplicado", variant: "success" });
+    },
+    onError,
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (id: string) => deleteTransaction(id),
+    onSuccess: () => {
+      invalidate();
+      showToast({ title: "Lançamento removido", variant: "success" });
+    },
+    onError,
+  });
+
+  return {
+    transactions,
+    addTransaction: (values: TransactionFormValues, attachment?: { id: string; name: string }) =>
+      addMutation.mutateAsync({ values, attachment }),
+    updateTransaction: (
+      id: string,
+      values: TransactionFormValues,
+      attachment?: { id: string; name: string }
+    ) => updateMutation.mutateAsync({ id, values, attachment }),
+    duplicateTransaction: (transaction: Transaction) => duplicateMutation.mutateAsync(transaction),
+    removeTransaction: (id: string) => removeMutation.mutateAsync(id),
+  };
 }

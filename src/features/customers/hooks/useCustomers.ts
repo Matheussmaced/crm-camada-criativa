@@ -1,34 +1,64 @@
 "use client";
 
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
-import { useCollectionStore } from "@/hooks/useCollectionStore";
-import { customerStore } from "@/services/storage/customerStorage";
-import { generateId } from "@/utils/id";
-import { nowIso } from "@/utils/formatDate";
-import type { Customer } from "@/types";
+import {
+  deleteCustomer,
+  fetchCustomers,
+  insertCustomer,
+  updateCustomerRow,
+} from "@/services/supabase/customers";
 import type { CustomerFormValues } from "../schemas";
 
+const CUSTOMERS_KEY = ["customers"] as const;
+
 export function useCustomers() {
-  const customers = useCollectionStore(customerStore);
+  const { isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
   const { showToast } = useToast();
 
-  function addCustomer(values: CustomerFormValues): Customer {
-    const now = nowIso();
-    const customer: Customer = { id: generateId(), ...values, createdAt: now, updatedAt: now };
-    customerStore.add(customer);
-    showToast({ title: "Cliente cadastrado", variant: "success" });
-    return customer;
-  }
+  const { data: customers = [] } = useQuery({
+    queryKey: CUSTOMERS_KEY,
+    queryFn: fetchCustomers,
+    enabled: isAuthenticated,
+  });
 
-  function updateCustomer(id: string, values: CustomerFormValues): void {
-    customerStore.update(id, { ...values, updatedAt: nowIso() });
-    showToast({ title: "Cliente atualizado", variant: "success" });
-  }
+  const onError = () => showToast({ title: "Erro ao salvar. Tente novamente.", variant: "error" });
 
-  function removeCustomer(id: string): void {
-    customerStore.remove(id);
-    showToast({ title: "Cliente removido", variant: "success" });
-  }
+  const addMutation = useMutation({
+    mutationFn: (values: CustomerFormValues) => insertCustomer(values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CUSTOMERS_KEY });
+      showToast({ title: "Cliente cadastrado", variant: "success" });
+    },
+    onError,
+  });
 
-  return { customers, addCustomer, updateCustomer, removeCustomer };
+  const updateMutation = useMutation({
+    mutationFn: ({ id, values }: { id: string; values: CustomerFormValues }) =>
+      updateCustomerRow(id, values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CUSTOMERS_KEY });
+      showToast({ title: "Cliente atualizado", variant: "success" });
+    },
+    onError,
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (id: string) => deleteCustomer(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CUSTOMERS_KEY });
+      showToast({ title: "Cliente removido", variant: "success" });
+    },
+    onError,
+  });
+
+  return {
+    customers,
+    addCustomer: (values: CustomerFormValues) => addMutation.mutateAsync(values),
+    updateCustomer: (id: string, values: CustomerFormValues) =>
+      updateMutation.mutateAsync({ id, values }),
+    removeCustomer: (id: string) => removeMutation.mutateAsync(id),
+  };
 }

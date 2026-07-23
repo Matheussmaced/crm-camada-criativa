@@ -1,8 +1,10 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { settingsStore } from "@/services/storage/settingsStorage";
+import { useSettings } from "@/features/settings/hooks/useSettings";
 import type { ThemeMode } from "@/types";
+
+const THEME_CACHE_KEY = "crm3d:theme-cache";
 
 interface ThemeContextValue {
   theme: ThemeMode;
@@ -13,6 +15,12 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
+function readCachedTheme(): ThemeMode {
+  if (typeof window === "undefined") return "system";
+  const cached = window.localStorage.getItem(THEME_CACHE_KEY) as ThemeMode | null;
+  return cached ?? "system";
+}
+
 function resolveTheme(theme: ThemeMode): "light" | "dark" {
   if (theme === "system") {
     if (typeof window === "undefined") return "light";
@@ -22,15 +30,24 @@ function resolveTheme(theme: ThemeMode): "light" | "dark" {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeMode>(() => settingsStore.get().theme);
+  const { settings, updateSettings } = useSettings();
+  const [theme, setThemeState] = useState<ThemeMode>(() => readCachedTheme());
   const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">(() => resolveTheme(theme));
 
-  useEffect(() => settingsStore.subscribe(() => setThemeState(settingsStore.get().theme)), []);
+  // Sincroniza com o valor salvo assim que a query resolver (ex.: troca em outro dispositivo).
+  // Ajuste de estado durante a renderização (não em um efeito) por ser uma reação a uma
+  // mudança de valor vindo de fora, não um efeito colateral.
+  const [lastSeenSettingsTheme, setLastSeenSettingsTheme] = useState(settings.theme);
+  if (settings.theme !== lastSeenSettingsTheme) {
+    setLastSeenSettingsTheme(settings.theme);
+    setThemeState(settings.theme);
+  }
 
   useEffect(() => {
     const next = resolveTheme(theme);
     setResolvedTheme(next);
     document.documentElement.classList.toggle("dark", next === "dark");
+    window.localStorage.setItem(THEME_CACHE_KEY, theme);
   }, [theme]);
 
   useEffect(() => {
@@ -45,11 +62,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     () => ({
       theme,
       resolvedTheme,
-      setTheme: (next) => settingsStore.update({ theme: next }),
-      toggleTheme: () =>
-        settingsStore.update({ theme: resolvedTheme === "dark" ? "light" : "dark" }),
+      setTheme: (next) => {
+        setThemeState(next);
+        updateSettings({ theme: next }).catch(() => {});
+      },
+      toggleTheme: () => {
+        const next = resolvedTheme === "dark" ? "light" : "dark";
+        setThemeState(next);
+        updateSettings({ theme: next }).catch(() => {});
+      },
     }),
-    [theme, resolvedTheme]
+    [theme, resolvedTheme, updateSettings]
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

@@ -34,7 +34,7 @@ export function CostConfigForm() {
   const values = methods.watch();
   const status = useAutoSave(values, (next) => {
     const result = costConfigSchema.safeParse(next);
-    if (result.success) updateCostConfig(result.data);
+    if (result.success) return updateCostConfig(result.data);
   });
 
   return (

@@ -1,69 +1,102 @@
 "use client";
 
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
-import { useCollectionStore } from "@/hooks/useCollectionStore";
-import { budgetStore } from "@/services/storage/budgetStorage";
-import { generateId } from "@/utils/id";
-import { nowIso } from "@/utils/formatDate";
+import {
+  deleteBudget,
+  fetchBudgets,
+  insertBudget,
+  insertDuplicateBudget,
+  updateBudgetRow,
+  updateBudgetStatus,
+} from "@/services/supabase/budgets";
 import type { Budget, BudgetInput, CostConfig } from "@/types";
 import { calculateBudgetPricing } from "../utils/pricingEngine";
 
+export const BUDGETS_KEY = ["budgets"] as const;
+
 export function useBudgets() {
-  const budgets = useCollectionStore(budgetStore);
+  const { isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
   const { showToast } = useToast();
 
-  function addBudget(input: BudgetInput, costConfig: CostConfig): Budget {
-    const now = nowIso();
-    const costBreakdown = calculateBudgetPricing(input, costConfig);
-    const budget: Budget = {
-      id: generateId(),
-      ...input,
-      status: "rascunho",
-      costBreakdown,
-      selectedPrice: costBreakdown.consumerFinalPrice,
-      createdAt: now,
-      updatedAt: now,
-    };
-    budgetStore.add(budget);
-    showToast({ title: "Orçamento criado", variant: "success" });
-    return budget;
+  const { data: budgets = [] } = useQuery({
+    queryKey: BUDGETS_KEY,
+    queryFn: fetchBudgets,
+    enabled: isAuthenticated,
+  });
+
+  function invalidate() {
+    return queryClient.invalidateQueries({ queryKey: BUDGETS_KEY });
   }
 
-  function updateBudget(id: string, input: BudgetInput, costConfig: CostConfig): void {
-    const costBreakdown = calculateBudgetPricing(input, costConfig);
-    budgetStore.update(id, {
-      ...input,
-      costBreakdown,
-      selectedPrice: costBreakdown.consumerFinalPrice,
-      updatedAt: nowIso(),
-    });
-    showToast({ title: "Orçamento atualizado", variant: "success" });
-  }
+  const onError = () => showToast({ title: "Erro ao salvar. Tente novamente.", variant: "error" });
 
-  function updateStatus(id: string, status: Budget["status"]): void {
-    budgetStore.update(id, { status, updatedAt: nowIso() });
-    showToast({ title: "Status atualizado", variant: "success" });
-  }
+  const addMutation = useMutation({
+    mutationFn: ({ input, costConfig }: { input: BudgetInput; costConfig: CostConfig }) =>
+      insertBudget(input, calculateBudgetPricing(input, costConfig)),
+    onSuccess: () => {
+      invalidate();
+      showToast({ title: "Orçamento criado", variant: "success" });
+    },
+    onError,
+  });
 
-  function duplicateBudget(budget: Budget): Budget {
-    const now = nowIso();
-    const duplicated: Budget = {
-      ...budget,
-      id: generateId(),
-      projectName: `${budget.projectName} (cópia)`,
-      status: "rascunho",
-      createdAt: now,
-      updatedAt: now,
-    };
-    budgetStore.add(duplicated);
-    showToast({ title: "Orçamento duplicado", variant: "success" });
-    return duplicated;
-  }
+  const updateMutation = useMutation({
+    mutationFn: ({
+      id,
+      input,
+      costConfig,
+    }: {
+      id: string;
+      input: BudgetInput;
+      costConfig: CostConfig;
+    }) => updateBudgetRow(id, input, calculateBudgetPricing(input, costConfig)),
+    onSuccess: () => {
+      invalidate();
+      showToast({ title: "Orçamento atualizado", variant: "success" });
+    },
+    onError,
+  });
 
-  function removeBudget(id: string): void {
-    budgetStore.remove(id);
-    showToast({ title: "Orçamento removido", variant: "success" });
-  }
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: Budget["status"] }) =>
+      updateBudgetStatus(id, status),
+    onSuccess: () => {
+      invalidate();
+      showToast({ title: "Status atualizado", variant: "success" });
+    },
+    onError,
+  });
 
-  return { budgets, addBudget, updateBudget, updateStatus, duplicateBudget, removeBudget };
+  const duplicateMutation = useMutation({
+    mutationFn: (budget: Budget) => insertDuplicateBudget(budget),
+    onSuccess: () => {
+      invalidate();
+      showToast({ title: "Orçamento duplicado", variant: "success" });
+    },
+    onError,
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (id: string) => deleteBudget(id),
+    onSuccess: () => {
+      invalidate();
+      showToast({ title: "Orçamento removido", variant: "success" });
+    },
+    onError,
+  });
+
+  return {
+    budgets,
+    addBudget: (input: BudgetInput, costConfig: CostConfig) =>
+      addMutation.mutateAsync({ input, costConfig }),
+    updateBudget: (id: string, input: BudgetInput, costConfig: CostConfig) =>
+      updateMutation.mutateAsync({ id, input, costConfig }),
+    updateStatus: (id: string, status: Budget["status"]) =>
+      statusMutation.mutateAsync({ id, status }),
+    duplicateBudget: (budget: Budget) => duplicateMutation.mutateAsync(budget),
+    removeBudget: (id: string) => removeMutation.mutateAsync(id),
+  };
 }

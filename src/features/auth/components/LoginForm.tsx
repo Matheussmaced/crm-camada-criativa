@@ -26,9 +26,9 @@ export function LoginForm() {
     defaultValues: { email: "", password: "" },
   });
 
-  function onSubmit(values: LoginFormValues) {
+  async function onSubmit(values: LoginFormValues) {
     setAuthError(undefined);
-    const success = login(values.email, values.password);
+    const success = await login(values.email, values.password);
     if (!success) {
       setAuthError("E-mail ou senha inválidos.");
       return;

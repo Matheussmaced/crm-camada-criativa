@@ -3,13 +3,12 @@
 import { LogOut, Settings, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Dropdown } from "@/components/ui/Dropdown";
-import { useRecordStore } from "@/hooks/useRecordStore";
-import { settingsStore } from "@/services/storage/settingsStorage";
+import { useSettings } from "@/features/settings/hooks/useSettings";
 import { useAuth } from "@/contexts/AuthContext";
 import { ROUTES } from "@/constants/routes";
 
 export function UserMenu() {
-  const settings = useRecordStore(settingsStore);
+  const { settings } = useSettings();
   const { logout } = useAuth();
   const router = useRouter();
 
@@ -34,8 +33,8 @@ export function UserMenu() {
         {
           label: "Sair",
           icon: <LogOut className="h-4 w-4" />,
-          onClick: () => {
-            logout();
+          onClick: async () => {
+            await logout();
             router.replace(ROUTES.login);
           },
           danger: true,

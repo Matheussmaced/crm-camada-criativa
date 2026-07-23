@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { AppProviders } from "@/contexts/AppProviders";
 import { ConfirmProvider } from "@/hooks/useConfirm";
 import { Toaster } from "@/components/ui/Toaster";
-import { STORAGE_KEYS } from "@/services/storage/keys";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -24,8 +23,7 @@ export const metadata: Metadata = {
 const THEME_INIT_SCRIPT = `
 (function () {
   try {
-    var raw = localStorage.getItem(${JSON.stringify(STORAGE_KEYS.settings)});
-    var theme = raw ? JSON.parse(raw).theme : "system";
+    var theme = localStorage.getItem("crm3d:theme-cache") || "system";
     var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     var isDark = theme === "dark" || (theme !== "light" && prefersDark);
     if (isDark) document.documentElement.classList.add("dark");

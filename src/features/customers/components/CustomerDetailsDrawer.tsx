@@ -5,8 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { BUDGET_STATUS_LABELS } from "@/constants/budgetStatus";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { formatDate } from "@/utils/formatDate";
-import { useCollectionStore } from "@/hooks/useCollectionStore";
-import { budgetStore } from "@/services/storage/budgetStorage";
+import { useBudgets } from "@/features/budgets/hooks/useBudgets";
 import type { CustomerWithStats } from "@/types";
 
 interface CustomerDetailsDrawerProps {
@@ -15,7 +14,7 @@ interface CustomerDetailsDrawerProps {
 }
 
 export function CustomerDetailsDrawer({ customer, onClose }: CustomerDetailsDrawerProps) {
-  const budgets = useCollectionStore(budgetStore);
+  const { budgets } = useBudgets();
   const history = customer
     ? budgets
         .filter((budget) => budget.customerId === customer.id)

@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from "react";
 
 export type SaveStatus = "idle" | "saving" | "saved";
 
-export function useAutoSave<T>(value: T, onSave: (value: T) => void, delayMs = 600): SaveStatus {
+export function useAutoSave<T>(
+  value: T,
+  onSave: (value: T) => unknown,
+  delayMs = 600
+): SaveStatus {
   const [status, setStatus] = useState<SaveStatus>("idle");
   const isFirstRun = useRef(true);
   const serialized = JSON.stringify(value);
@@ -13,11 +17,15 @@ export function useAutoSave<T>(value: T, onSave: (value: T) => void, delayMs = 6
       return;
     }
     setStatus("saving");
-    const timeout = setTimeout(() => {
-      onSave(JSON.parse(serialized));
-      setStatus("saved");
+    let cancelled = false;
+    const timeout = setTimeout(async () => {
+      await onSave(JSON.parse(serialized));
+      if (!cancelled) setStatus("saved");
     }, delayMs);
-    return () => clearTimeout(timeout);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serialized, delayMs]);
 

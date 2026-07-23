@@ -1,10 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useCollectionStore } from "@/hooks/useCollectionStore";
-import { transactionStore } from "@/services/storage/financialStorage";
-import { budgetStore } from "@/services/storage/budgetStorage";
-import { customerStore } from "@/services/storage/customerStorage";
+import { useTransactions } from "@/features/financial/hooks/useTransactions";
+import { useBudgets } from "@/features/budgets/hooks/useBudgets";
+import { useCustomers } from "@/features/customers/hooks/useCustomers";
 import { calculateFinancialTotals } from "@/features/financial/utils/financialTotals";
 import { calculateCashFlowSummary } from "@/features/financial/utils/cashFlow";
 import { buildExpensesByCategoryData, buildTopMaterialsData, buildTopPiecesData } from "@/features/dashboard/utils/chartData";
@@ -18,9 +17,9 @@ import {
 const DEFAULT_RANGE: DateRange = { start: "", end: "" };
 
 export function useReportsData() {
-  const transactions = useCollectionStore(transactionStore);
-  const budgets = useCollectionStore(budgetStore);
-  const customers = useCollectionStore(customerStore);
+  const { transactions } = useTransactions();
+  const { budgets } = useBudgets();
+  const { customers } = useCustomers();
   const [range, setRange] = useState<DateRange>(DEFAULT_RANGE);
 
   const data = useMemo(() => {

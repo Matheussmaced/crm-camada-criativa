@@ -1,40 +1,59 @@
 "use client";
 
-import { createContext, useContext, useMemo, type ReactNode } from "react";
-import { useRecordStore } from "@/hooks/useRecordStore";
-import { authStore } from "@/services/storage/authStorage";
-import { AUTH_CREDENTIALS } from "@/constants/auth";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase/client";
 import { useToast } from "./ToastContext";
 
 interface AuthContextValue {
   isAuthenticated: boolean;
   email: string | null;
-  login: (email: string, password: string) => boolean;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const session = useRecordStore(authStore);
+  const [email, setEmail] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { showToast } = useToast();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsAuthenticated(!!session);
+      setEmail(session?.user.email ?? null);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+      setEmail(session?.user.email ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      isAuthenticated: session.isAuthenticated,
-      email: session.email,
-      login: (email, password) => {
-        const isValid =
-          email.trim().toLowerCase() === AUTH_CREDENTIALS.email && password === AUTH_CREDENTIALS.password;
-        if (isValid) authStore.set({ isAuthenticated: true, email: AUTH_CREDENTIALS.email });
-        return isValid;
+      isAuthenticated,
+      email,
+      login: async (loginEmail, password) => {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: loginEmail.trim(),
+          password,
+        });
+        return !error;
       },
-      logout: () => {
-        authStore.set({ isAuthenticated: false, email: null });
+      logout: async () => {
+        await supabase.auth.signOut();
+        queryClient.clear();
         showToast({ title: "Sessão encerrada", variant: "info" });
       },
     }),
-    [session, showToast]
+    [isAuthenticated, email, queryClient, showToast]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

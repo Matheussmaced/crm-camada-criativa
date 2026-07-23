@@ -3,14 +3,13 @@
 import { Box, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { NAVIGATION_ITEMS } from "@/constants/navigation";
 import { useSidebar } from "@/contexts/SidebarContext";
-import { useRecordStore } from "@/hooks/useRecordStore";
-import { settingsStore } from "@/services/storage/settingsStorage";
+import { useSettings } from "@/features/settings/hooks/useSettings";
 import { NavItem } from "./NavItem";
 import { cn } from "@/utils/cn";
 
 export function Sidebar() {
   const { collapsed, toggleCollapsed, mobileOpen, closeMobile } = useSidebar();
-  const settings = useRecordStore(settingsStore);
+  const { settings } = useSettings();
 
   const content = (
     <>

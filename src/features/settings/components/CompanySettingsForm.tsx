@@ -32,7 +32,7 @@ export function CompanySettingsForm() {
   const values = watch();
   const status = useAutoSave(values, (next) => {
     const result = companySettingsSchema.safeParse(next);
-    if (result.success) updateSettings(result.data);
+    if (result.success) return updateSettings(result.data);
   });
 
   return (

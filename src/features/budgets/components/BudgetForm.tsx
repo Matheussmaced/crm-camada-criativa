@@ -55,13 +55,17 @@ export function BudgetForm({ budget }: BudgetFormProps) {
       : DEFAULT_VALUES,
   });
 
-  function onSubmit(values: BudgetFormValues) {
-    if (budget) {
-      updateBudget(budget.id, values, costConfig);
-    } else {
-      addBudget(values, costConfig);
+  async function onSubmit(values: BudgetFormValues) {
+    try {
+      if (budget) {
+        await updateBudget(budget.id, values, costConfig);
+      } else {
+        await addBudget(values, costConfig);
+      }
+      router.push(ROUTES.budgets);
+    } catch {
+      // Erro já reportado via toast pela mutation; mantém o usuário na tela para tentar de novo.
     }
-    router.push(ROUTES.budgets);
   }
 
   return (

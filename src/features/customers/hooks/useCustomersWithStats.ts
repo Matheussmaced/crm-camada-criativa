@@ -1,12 +1,19 @@
 "use client";
 
 import { useMemo } from "react";
-import { useCollectionStore } from "@/hooks/useCollectionStore";
-import { budgetStore } from "@/services/storage/budgetStorage";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
+import { BUDGETS_KEY } from "@/features/budgets/hooks/useBudgets";
+import { fetchBudgets } from "@/services/supabase/budgets";
 import type { Customer, CustomerWithStats } from "@/types";
 
 export function useCustomersWithStats(customers: Customer[]): CustomerWithStats[] {
-  const budgets = useCollectionStore(budgetStore);
+  const { isAuthenticated } = useAuth();
+  const { data: budgets = [] } = useQuery({
+    queryKey: BUDGETS_KEY,
+    queryFn: fetchBudgets,
+    enabled: isAuthenticated,
+  });
 
   return useMemo(() => {
     return customers.map((customer) => {
