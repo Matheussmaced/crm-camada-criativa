@@ -8,3 +8,4 @@ export * from "./budgetStorage";
 export * from "./settingsStorage";
 export * from "./costConfigStorage";
 export * from "./attachmentStorage";
+export * from "./authStorage";

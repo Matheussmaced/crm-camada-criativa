@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { useRecordStore } from "@/hooks/useRecordStore";
 import { settingsStore } from "@/services/storage/settingsStorage";
+import { useAuth } from "@/contexts/AuthContext";
 import { ROUTES } from "@/constants/routes";
 
 export function UserMenu() {
   const settings = useRecordStore(settingsStore);
+  const { logout } = useAuth();
   const router = useRouter();
 
   return (
@@ -32,7 +34,10 @@ export function UserMenu() {
         {
           label: "Sair",
           icon: <LogOut className="h-4 w-4" />,
-          onClick: () => undefined,
+          onClick: () => {
+            logout();
+            router.replace(ROUTES.login);
+          },
           danger: true,
         },
       ]}

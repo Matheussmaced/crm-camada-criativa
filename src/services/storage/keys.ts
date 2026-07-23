@@ -6,4 +6,5 @@ export const STORAGE_KEYS = {
   budgets: "crm3d:budgets",
   settings: "crm3d:settings",
   costConfig: "crm3d:cost-config",
+  auth: "crm3d:auth",
 } as const;

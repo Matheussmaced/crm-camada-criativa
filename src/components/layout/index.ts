@@ -7,3 +7,4 @@ export * from "./ThemeToggle";
 export * from "./PageHeader";
 export * from "./AppShellSkeleton";
 export * from "./HydrationGate";
+export * from "./AuthGuard";
